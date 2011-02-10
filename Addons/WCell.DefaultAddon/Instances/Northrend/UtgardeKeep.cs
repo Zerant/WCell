@@ -19,7 +19,9 @@ using WCell.RealmServer.AI.Actions.Combat;
 using System;
 using WCell.Util;
 using WCell.Util.Graphics;
-
+using WCell.RealmServer.Spells.Targeting;
+using WCell.RealmServer.AI;
+using WCell.RealmServer.AI.Actions.States;
 
 ///
 /// This file was automatically created, using WCell's CodeFileWriter
@@ -54,22 +56,41 @@ namespace WCell.Addons.Default.Instances
 		private int PrinceDeadSkeletonCount = 0;
 		private readonly NPC[] PrinceDeadSkeletons = new NPC[PrinceSkeletonCount];
 
-		#region Setup Content
-		[Initialization]
+        static Spell shadowbold, scourgeresurrection;
+
+        #region GameObjects
+
+        private static GOEntry[] GiantPortcullis = new GOEntry[2];        
+        
+        #endregion
+
+        #region Setup Content
+        [Initialization]
+        [DependentInitialization(typeof(GOMgr))]
+        public static void InitGOs()
+        {
+            GiantPortcullis[0] = GOMgr.GetEntry(GOEntryId.GiantPortcullis);
+            GiantPortcullis[1] = GOMgr.GetEntry(GOEntryId.GiantPortcullis_2);
+
+            GiantPortcullis[0].Activated += go => {
+              go.IsEnabled = true;// = GameObjectState.Disabled;
+            
+            };
+
+            GiantPortcullis[1].Activated += go =>
+            {
+                go.IsEnabled = true;  //go.State = GameObjectState.Disabled;
+            };
+
+        }
+
+        [Initialization]
 		[DependentInitialization(typeof(NPCMgr))]
 		public static void InitNPCs()
 		{
-			// Dragonflayer Ironhelm
-			dragonflayerIronhelm = NPCMgr.GetEntry(NPCId.DragonflayerIronhelm);
-
-			dragonflayerIronhelm.AddSpell(SpellId.HeroicStrike_9);
-			SpellHandler.Apply(spell => { spell.CooldownTime = 5000; },
-				SpellId.HeroicStrike_9);
-
-
-			//Prince Keleseth
+            
+    		//Prince Keleseth
 			SetupPrinceKeleseth();
-
 
 			// Dragonflayer Ironhelm
 			dragonflayerIronhelm = NPCMgr.GetEntry(NPCId.DragonflayerIronhelm);
@@ -79,8 +100,21 @@ namespace WCell.Addons.Default.Instances
 				SpellId.HeroicStrike_9);
 		}
 
-		#endregion
+        [Initialization(InitializationPass.Second)]
+        public static void InitSpells()
+        {
+            shadowbold = SpellHandler.Get(SpellId.ShadowBolt_73);
+            shadowbold.AISettings.SetCooldown(6000);
+            shadowbold.OverrideAITargetDefinitions(
+                     DefaultTargetAdders.AddAreaSource,
+                     DefaultTargetEvaluators.RandomEvaluator,
+                     DefaultTargetFilters.IsPlayer,
+                     DefaultTargetFilters.IsHostile);
 
+            scourgeresurrection = SpellHandler.Get(SpellId.ScourgeResurrection);
+            scourgeresurrection.Visual = 0;
+        }
+		#endregion
 
 		#region Prince Keleseth
 		/// <summary>
@@ -162,8 +196,14 @@ namespace WCell.Addons.Default.Instances
 			princeKelesethEntry.BrainCreator = princeKeleseth => new PrinceKelesethBrain(princeKeleseth);
 
 			PrinceSkeletonEntry = NPCMgr.GetEntry(NPCId.VrykulSkeleton);
-
-			// add spell to prince
+            PrinceSkeletonEntry.Activated += skeleton =>
+                {
+                    ((BaseBrain)skeleton.Brain).Actions[BrainState.Roam] =
+                        new SkeletonBrainStateRoam(skeleton);
+                };
+            //add spell to prince
+            princeKelesethEntry.AddSpell(shadowbold);
+			// add spell to skeletons
 			PrinceSkeletonEntry.AddSpell(SpellId.Decrepify);
 			SpellHandler.Apply(spell => { spell.CooldownTime = 5000; }, SpellId.Decrepify);
 
@@ -189,7 +229,7 @@ namespace WCell.Addons.Default.Instances
 
 			// give the prince his AttackAction
 			princeKelesethEntry.Activated += prince =>
-			{
+			{ 
 				var instance = prince.Map as UtgardeKeep;
 				if (instance == null || prince.SpawnPoint == null) return;
 
@@ -226,26 +266,6 @@ namespace WCell.Addons.Default.Instances
 			PrinceSkeletonEntry.Activated += UpdateSkeleton;
 			PrinceSkeletonEntry.Died += UpdateSkeleton;
 			PrinceSkeletonEntry.Deleted += UpdateSkeleton;
-
-			princeKelesethEntry.AddSpell(SpellId.ShadowBolt_73);
-			SpellHandler.Apply(spell => { spell.CooldownTime = 10000; },
-				SpellId.ShadowBolt_73);
-
-			//Heroic
-			//princeKelesethEntry.AddSpell(SpellId.ShadowBolt_99);
-			//SpellHandler.Apply(spell => { spell.CooldownTime = 5000; },
-			//    SpellId.ShadowBolt_73);
-
-			//princeKelesethEntry.AddSpell(SpellId.FrostTomb_3);
-
-			//princeKelesethEntry.AddSpell(SpellId.FrostTomb_3);
-
-			//princeKelesethEntry.AddSpell(SpellId.FrostTombSummon);
-
-			//princeKelesethEntry.AddSpell(SpellId.Decrepify);
-
-			//princeKelesethEntry.AddSpell(SpellId.ScourgeResurrection);
-
 		}
 
 		#region Handle Skeleton group
@@ -299,7 +319,22 @@ namespace WCell.Addons.Default.Instances
 		}
 		#endregion
 
-		public class PrinceKelesethBrain : MobBrain
+        public class SkeletonBrainStateRoam : AIRoamAction 
+        {
+
+            public SkeletonBrainStateRoam(NPC skeleton)
+			: base(skeleton)
+			{
+			}
+
+            public override void Update()
+            {
+                
+                base.Update();
+            }
+        }
+
+            		public class PrinceKelesethBrain : MobBrain
 		{
 			const string TEXT_AGGRO = "Your blood is mine!";
 			const string TEXT_SUMMONING_SKELETOMS = "Aranal, ledel! Their fate shall be yours!";
@@ -361,12 +396,12 @@ namespace WCell.Addons.Default.Instances
 			public override void Start()
 			{
 				// Revive the Skeletons
-				ResurrectSkeletons();
+				//ResurrectSkeletons();
 
 				// Cheking if Vrykul Skeleton is death
 				// if all Skeleton is death ress all
 				//m_owner.SpellCast.Start(SpellId.ScourgeResurrection, false, SkeletonsMinions);
-				m_owner.CallPeriodically(10000, CheckVrykulSekeltonIsDead);
+				//m_owner.CallPeriodically(10000, CheckVrykulSekeltonIsDead);
 
 				base.Start();
 			}
@@ -405,8 +440,9 @@ namespace WCell.Addons.Default.Instances
 					if (mob != null)
 					{
 						// resurrect skeleton
-						m_owner.SpellCast.Trigger(SpellId.ScourgeResurrection, mob);
-						mob.HealthPct = 100;
+						//m_owner.SpellCast.Trigger(SpellId.ScourgeResurrection, mob);
+                        m_owner.SpellCast.Trigger(scourgeresurrection, mob);
+						//mob.HealthPct = 100;
 					}
 				}
 			}
