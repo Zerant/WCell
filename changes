@@ -1,2 +1,2 @@
-- fixed a bug with spells that have tool requirements (Mana Spring Totem amonst others)
-- fixed the situation where an exception was raised if a target got teleported while being under the influence of an AreaAura (far-teleport-related bugs)
+- added RecordState to WCellRecord to avoid deleting of already deleted records
+- fixed double shots of physical abilities that apply School damage
