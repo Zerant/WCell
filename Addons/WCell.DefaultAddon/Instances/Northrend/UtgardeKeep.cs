@@ -193,7 +193,13 @@ namespace WCell.Addons.Default.Instances
 		private static void SetupPrinceKeleseth()
 		{
 			princeKelesethEntry = NPCMgr.GetEntry(NPCId.PrinceKeleseth);
+            
 			princeKelesethEntry.BrainCreator = princeKeleseth => new PrinceKelesethBrain(princeKeleseth);
+            princeKelesethEntry.Activated += princeKeleseth =>
+            {
+                princeKeleseth.Power = 43000;
+            };
+            
 
 			PrinceSkeletonEntry = NPCMgr.GetEntry(NPCId.VrykulSkeleton);
             PrinceSkeletonEntry.Activated += skeleton =>
@@ -357,13 +363,14 @@ namespace WCell.Addons.Default.Instances
 			public PrinceKelesethBrain(NPC princeKeleseth)
 				: base(princeKeleseth)
 			{
+                
 			}
 
 			public override void OnEnterCombat()
 			{
 				m_owner.Yell(TEXT_AGGRO);
 				m_owner.PlaySound((int)SOUND_AGGRO);
-
+                
 				base.OnEnterCombat();
 			}
 
