@@ -111,6 +111,9 @@ namespace WCell.Addons.Default.Instances
                      DefaultTargetFilters.IsPlayer,
                      DefaultTargetFilters.IsHostile);
 
+            var effect = shadowbold.GetEffect(SpellEffectType.SchoolDamage); 
+            effect.Radius = 40;
+
             scourgeresurrection = SpellHandler.Get(SpellId.ScourgeResurrection);
             scourgeresurrection.Visual = 0;
         }
@@ -195,12 +198,8 @@ namespace WCell.Addons.Default.Instances
 			princeKelesethEntry = NPCMgr.GetEntry(NPCId.PrinceKeleseth);
             
 			princeKelesethEntry.BrainCreator = princeKeleseth => new PrinceKelesethBrain(princeKeleseth);
-            princeKelesethEntry.Activated += princeKeleseth =>
-            {
-                princeKeleseth.Power = 43000;
-            };
+            princeKelesethEntry.GetRandomMana();
             
-
 			PrinceSkeletonEntry = NPCMgr.GetEntry(NPCId.VrykulSkeleton);
             PrinceSkeletonEntry.Activated += skeleton =>
                 {
